@@ -26,7 +26,6 @@ const taskNotFoundErr = {
 let tasks = [];
 let taskId = tasks.length;
 
-
 // util functions
 function findTask(req, res) {
 	const taskId = req.params.taskId;

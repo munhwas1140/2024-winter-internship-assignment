@@ -7,7 +7,6 @@ const projectIdMismatchErr = {
 	message: "path value projectId and pjId don't match",
 }
 
-
 // POST
 function postTask(req, res) {
 	const {project} = findProject(req, res);
@@ -38,14 +37,12 @@ function postTask(req, res) {
     });
 }
 
-
 // GET ALL
 function getTasks(req, res) {
   const {project} = findProject(req, res)
   if(!project) return ;
   res.status(200).json(tasks.filter(t => t.pjId == project.id));
 }
-
 
 // PUT
 function putTask(req, res) {
@@ -76,7 +73,6 @@ function putTask(req, res) {
 	res.status(200).json({message: "task successfully updated"});
 }
 
-
 // DELETE
 function deleteTask(req, res) {
 	const {taskIdx} = findTask(req, res);
@@ -92,7 +88,6 @@ function checkPriority(priority) {
 	}
 	return "";
 }
-
 
 
 // util functions 

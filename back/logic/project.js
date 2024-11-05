@@ -8,7 +8,6 @@ const projectDeleteErr = {
 	message: "Cannot delete. because tasks are associated with this project."
 };
 
-
 // POST
 function postProject(req, res) {
 	projectId += 1;
@@ -27,12 +26,10 @@ function postProject(req, res) {
 	});
 }
 
-
 // GET ALL
 function getProjects(req, res) {
 	res.status(200).json(projects);
 }
-
 
 // GET DETAIL
 function getProjectDetail(req, res) {
@@ -47,7 +44,6 @@ function getProjectDetail(req, res) {
 	};
 	res.status(200).json(projectWithTasks);
 }
-
 
 // DELETE
 function deleteProject(req, res) {

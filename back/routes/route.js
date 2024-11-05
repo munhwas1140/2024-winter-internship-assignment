@@ -12,7 +12,6 @@ const validate = (req, res, next) => {
     return res.status(400).json(errors);
 }
 
-
 /// POST /projects
 router.post("/projects", 
     [
@@ -25,14 +24,12 @@ router.post("/projects",
     }
 );
 
-
 /// GET /projects
 router.get("/projects", 
     function(req, res, next) {
         getProjects(req, res);
     }
 );
-
 
 /// GET /projects/:projectId
 router.get("/projects/:projectId", 
@@ -45,7 +42,6 @@ router.get("/projects/:projectId",
     }
 );
 
-
 /// DELETE /projects/:projectId
 router.delete("/projects/:projectId", 
     [
@@ -56,7 +52,6 @@ router.delete("/projects/:projectId",
         deleteProject(req, res);
     }
 );
-
 
 /// POST /projects/:projectId/tasks
 router.post("/projects/:projectId/tasks",
@@ -71,7 +66,6 @@ router.post("/projects/:projectId/tasks",
     }
 );
 
-
 /// GET /projects/:projectId/tasks
 router.get("/projects/:projectId/tasks",
     [
@@ -82,7 +76,6 @@ router.get("/projects/:projectId/tasks",
         getTasks(req, res);
     }
 );
-
 
 /// PUT /projects/:projectId/tasks/:taskId
 router.put("/projects/:projectId/tasks/:taskId",
@@ -96,7 +89,6 @@ router.put("/projects/:projectId/tasks/:taskId",
     }
 );
 
-
 /// DELETE /projects/:projectId/tasks/:taskId
 router.delete("/projects/:projectId/tasks/:taskId",
     [
@@ -108,7 +100,6 @@ router.delete("/projects/:projectId/tasks/:taskId",
         deleteTask(req, res);
     }
 );
-
 
 router.use("*", 
     function (req, res) {

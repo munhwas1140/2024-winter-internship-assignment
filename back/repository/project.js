@@ -30,7 +30,6 @@ const projectNotFoundErr = {
 let projects = [];
 let projectId = projects.length;
 
-
 // util functions
 function findProject(req, res) {
     const projectId = req.params.projectId;
