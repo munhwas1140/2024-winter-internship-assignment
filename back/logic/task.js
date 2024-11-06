@@ -13,8 +13,9 @@ const mutex = new Mutex();
 async function postTask(req, res) {
     try {
         await mutex.acquire();
-        let { taskId, tasks } = await repository.getTasks();
-        let { projectId, projects } = await repository.getProjects();
+        let { taskPk, tasks } = await repository.getTasks();
+        let { projectPk, projects } = await repository.getProjects();
+
         const { project } = findProjectById(projects, req.params.projectId, res);
         if(!project) return ; 
         
@@ -23,21 +24,31 @@ async function postTask(req, res) {
             return ;
         }
         
-        taskId += 1;
+        taskPk += 1;
         const newTask = {
             pjId: req.body.pjId,
-            id: taskId,
+            id: taskPk,
             title: req.body.title,
             description: req.body.description,
-            priority: checkPriority(req.body.priority),
-            dueDate: checkDueDate(req.body.dueDate),
+            priority: "",
+            dueDate: "",
             status: "not-started"
         };
-        tasks.push(newTask);
-        project.tasks.push(taskId);
 
-        await repository.saveProjects({ projectId, projects });
-        await repository.saveTasks({ taskId, tasks });
+        if(checkPriority(req.body.priority)) {
+            newTask.priority = req.body.priority;
+        }
+
+        if(isDate(req.body.dueDate)) {
+            newTask.dueDate = formatDueDate(req.body.dueDate);
+        }
+
+        tasks.push(newTask);
+        project.tasks.push(newTask.id);
+
+        await repository.saveProjects({ projectPk, projects });
+        await repository.saveTasks({ taskPk, tasks });
+
         res.status(201).json({
             pjId: newTask.pjId,
             id: newTask.id,
@@ -52,6 +63,7 @@ async function postTask(req, res) {
 async function getTasks(req, res) {
     const { tasks } = await repository.getTasks();
     const { projects } = await repository.getProjects();
+
     const { project } = findProjectById(projects, req.params.projectId, res);
     if(!project) return ;
 
@@ -62,12 +74,13 @@ async function getTasks(req, res) {
 async function putTask(req, res) {
     try {
         await mutex.acquire();
-        let { taskId, tasks } = await repository.getTasks();
-        const { task } = findTaskById(tasks, req.params.taskId, res);
 
+        let { taskPk, tasks } = await repository.getTasks();
+
+        const { task } = findTaskById(tasks, req.params.taskId, res);
         if(!task) return ;
 
-        if(req.body.title != null) {
+        if(!req.body.title) {
             task.title = req.body.title;
         }
 
@@ -75,17 +88,16 @@ async function putTask(req, res) {
             task.priority = req.body.priority;
         }
         
-        if(req.body.dueDate != null) {
-            date = checkDueDate(req.body.dueDate);
-            if(date != "") {
-                task.dueDate = date;
-            }
+        if(isDate(req.body.dueDate)) {
+            task.dueDate = formatDueDate(req.body.dueDate);
         }
         
-        if(req.body.status != null && checkStatus(req.body.status)) {
+        if(checkStatus(req.body.status)) {
             task.status = req.body.status;
         }
-        await repository.saveTasks({ taskId, tasks });
+
+        await repository.saveTasks({ taskPk, tasks });
+
         res.status(200).json({message: "task successfully updated"});
     } finally {
         mutex.release();
@@ -96,10 +108,12 @@ async function putTask(req, res) {
 async function deleteTask(req, res) {
     try {
         await mutex.acquire();
-        let { projectId, projects } = await repository.getProjects();
-        let { taskId, tasks } = await repository.getTasks();
+        let { projectPk, projects } = await repository.getProjects();
+        let { taskPk, tasks } = await repository.getTasks();
+
         const { taskIdx, task } = findTaskById(tasks, req.params.taskId, res);
-        if(taskIdx == -1) return ;
+        if(!task) return ;
+
         const { project } = findProjectById(projects, req.params.projectId, res);
         if(!project) return ;
 
@@ -111,8 +125,10 @@ async function deleteTask(req, res) {
 
         project.tasks.splice(projectTaskIdx, 1);
         tasks.splice(taskIdx, 1);
-        await repository.saveProjects({ projectId, projects });
-        await repository.saveTasks({ taskId, tasks });
+
+        await repository.saveProjects({ projectPk, projects });
+        await repository.saveTasks({ taskPk, tasks });
+
         res.status(200).json({message: "task successfully deleted"}); 
     } finally {
         mutex.release();
@@ -123,23 +139,29 @@ async function deleteTask(req, res) {
 // util functions 
 const priorityList = ["high", "medium", "low"];
 function checkPriority(priority) {
-    if(priorityList.includes(priority)) {
-        return priority;
+    if(!priority && priorityList.includes(priority)) {
+        return true
     }
-    return "";
+    return false;
 }
 
-function checkDueDate(dueDate) {
+function isDate(dueDate) {
+    if(!dueDate) return false;
     date = new Date(dueDate);
-    if(isNaN(date)) return "";
+    if(isNaN(date)) return false;
+    return true;
+}
+
+function formatDueDate(dueDate) {
+    date = new Date(dueDate);
 
     let day = date.getDate();
-    day = day < 10 ? "0" + day : day;
-
     let month = date.getMonth() + 1;
+    const year = date.getFullYear();
+
+    day = day < 10 ? "0" + day : day;
     month = month < 10 ? "0" + month : month;
 
-    const year = date.getFullYear();
     return `${year}-${month}-${day}`;
 }
 
@@ -151,7 +173,6 @@ function checkStatus(status) {
 
 function findTaskById(tasks, taskId , res) {
     const taskIdx = tasks.findIndex(t => t.id == taskId);
-
     if(taskIdx == -1) {
         res.status(404).json(repository.taskNotFoundErr);
         return {

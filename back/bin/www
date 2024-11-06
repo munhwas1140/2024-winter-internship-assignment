@@ -23,12 +23,12 @@ if(!fs.existsSync(dataDirPath)) {
 
 if(!fs.existsSync(tasksFile)) {
   fs.writeFileSync(tasksFile,
-     JSON.stringify({taskId: 0, tasks: []}, null, 2), 'utf-8');
+     JSON.stringify({taskPk: 0, tasks: []}, null, 2), 'utf-8');
 }
 
 if(!fs.existsSync(projectsFile)) {
   fs.writeFileSync(projectsFile,
-     JSON.stringify({projectId: 0, projects: []}, null, 2), 'utf-8');
+     JSON.stringify({projectPk: 0, projects: []}, null, 2), 'utf-8');
 }
 
 

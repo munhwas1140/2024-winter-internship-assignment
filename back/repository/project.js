@@ -14,11 +14,8 @@ async function getProjects() {
 };
   
 async function saveProjects(projects) {
-    fs.writeJson(projectsFile, projects, { spaces: 2 });
+    await fs.writeJson(projectsFile, projects, { spaces: 2 });
 };
-
-
-
 
 module.exports = {
     projectNotFoundErr,

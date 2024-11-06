@@ -14,18 +14,19 @@ const mutex = new Mutex();
 async function postProject(req, res) {
     try {
         await mutex.acquire();
-        let { projectId, projects } = await repository.getProjects();
+        let { projectPk, projects } = await repository.getProjects();
 
-        projectId += 1;
+        projectPk += 1;
         const newProject = {
-            id: projectId,
+            id: projectPk,
             title: req.body.title,
             description: req.body.description,
             tasks: []
         };
         projects.push(newProject);
 
-        await repository.saveProjects({ projectId, projects })
+        await repository.saveProjects({ projectPk, projects })
+
         res.status(201).json({
             id: newProject.id, 
             title: newProject.title,
@@ -33,7 +34,6 @@ async function postProject(req, res) {
     } finally {
         mutex.release();
     }
-
 }
 
 // GET ALL
@@ -45,10 +45,9 @@ async function getProjects(req, res) {
 // GET DETAIL
 async function getProjectDetail(req, res) {
     const { projects } = await repository.getProjects();
+
     const { project } = findProjectById(projects, req.params.projectId, res);
-    if(!project) {
-        return ;
-    }
+    if(!project) return ;
     
     let { tasks } = await repository.getTasks();
     const projectWithTasks = {
@@ -62,20 +61,19 @@ async function getProjectDetail(req, res) {
 async function deleteProject(req, res) {
     try {
         await mutex.acquire();
-        let { projectId, projects } = await repository.getProjects();
-        const { projectIdx } = findProjectById(projects, req.params.projectId, res);
-        if(projectIdx == -1) {
-            return ;
-        }
+        let { projectPk, projects } = await repository.getProjects();
 
-        const project = projects[projectIdx];
+        const { projectIdx, project } = findProjectById(projects, req.params.projectId, res);
+        if(!project) return ;
+
         if(project.tasks.length > 0) {
             res.status(400).json(projectDeleteErr);
             return ;
         }
 
         projects.splice(projectIdx, 1);
-        await repository.saveProjects({ projectId, projects })
+        await repository.saveProjects({ projectPk, projects })
+
         res.status(200).json({message: "project successfully deleted"});
     } finally {
         mutex.release();

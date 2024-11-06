@@ -12,11 +12,10 @@ const taskNotFoundErr = {
 async function getTasks() {
     return await fs.readJson(tasksFile);
 };
-  
-async function saveTasks(tasks) {
-    fs.writeJson(tasksFile, tasks, { spaces: 2});
-};
 
+async function saveTasks(tasks) {
+    await fs.writeJson(tasksFile, tasks, { spaces: 2});
+};
 
 module.exports = {
     taskNotFoundErr,
