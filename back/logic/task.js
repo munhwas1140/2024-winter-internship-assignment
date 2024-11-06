@@ -1,96 +1,134 @@
-const { findTask } = require('../repository/task')
-var { tasks, taskId } = require('../repository/task')
-const { findProject } = require('../repository/project')
+const repository = require('../repository')
+const Mutex = require('async-mutex').Mutex;
+const { findProjectById } = require('./project')
 
 const projectIdMismatchErr = {
 	errors: 400,
 	message: "path value projectId and pjId don't match",
 }
 
+const mutex = new Mutex();
+
 // POST
-function postTask(req, res) {
-	const {project} = findProject(req, res);
-    if(!project) return ; 
-    
-    if(req.params.projectId != req.body.pjId) {
-		res.status(400).json(projectIdMismatchErr);
-		return ;
-    }
-    
-    taskId += 1;
+async function postTask(req, res) {
+	try {
+		await mutex.acquire();
+		let { taskId, tasks } = await repository.getTasks();
+		let { projectId, projects } = await repository.getProjects();
+		const { project } = findProjectById(projects, req.params.projectId, res);
+		if(!project) return ; 
+		
+		if(req.params.projectId != req.body.pjId) {
+			res.status(400).json(projectIdMismatchErr);
+			return ;
+		}
+		
+		taskId += 1;
+		const newTask = {
+			pjId: req.body.pjId,
+			id: taskId,
+			title: req.body.title,
+			description: req.body.description,
+			priority: checkPriority(req.body.priority),
+			dueDate: checkDueDate(req.body.dueDate),
+			status: "not-started"
+		};
+		tasks.push(newTask);
+		project.tasks.push(taskId);
 
-    const newTask = {
-		pjId: req.body.pjId,
-		id: taskId,
-		title: req.body.title,
-		description: req.body.description,
-		priority: checkPriority(req.body.priority),
-		dueDate: checkDueDate(req.body.dueDate),
-		status: "not-started"
-    };
-    tasks.push(newTask);
-
-    res.status(201).json({
-		pjId: newTask.pjId,
-		id: newTask.id,
-		title: newTask.title,
-    });
+		await repository.saveProjects({ projectId, projects });
+		await repository.saveTasks({ taskId, tasks });
+		res.status(201).json({
+			pjId: newTask.pjId,
+			id: newTask.id,
+			title: newTask.title,
+		});
+	} finally {
+		mutex.release();
+	}
 }
 
 // GET ALL
-function getTasks(req, res) {
-  const {project} = findProject(req, res)
-  if(!project) return ;
-  res.status(200).json(tasks.filter(t => t.pjId == project.id));
+async function getTasks(req, res) {
+	const { tasks } = await repository.getTasks();
+	const { projects } = await repository.getProjects();
+	const { project } = findProjectById(projects, req.params.projectId, res);
+	if(!project) return ;
+
+	res.status(200).json(tasks.filter(t => t.pjId == project.id));
 }
 
 // PUT
-function putTask(req, res) {
-	const {task} = findTask(req, res)
-	if(!task) return ;
+async function putTask(req, res) {
+	try {
+		await mutex.acquire();
+		let { taskId, tasks } = await repository.getTasks();
+		const { task } = findTaskById(tasks, req.params.taskId, res);
 
-	if(req.body.title != null) {
-		task.title = req.body.title;
-	}
+		if(!task) return ;
 
-	if(req.body.priority != null) {
-		priority = checkPriority(req.body.priority);
-		if(priority != "") {
+		if(req.body.title != null) {
+			task.title = req.body.title;
+		}
+
+		if(checkPriority(req.body.priority)) {
 			task.priority = req.body.priority;
 		}
-	}
-	
-	if(req.body.dueDate != null) {
-		date = checkDueDate(req.body.dueDate);
-		if(date != "") {
-			task.dueDate = date;
+		
+		if(req.body.dueDate != null) {
+			date = checkDueDate(req.body.dueDate);
+			if(date != "") {
+				task.dueDate = date;
+			}
 		}
+		
+		if(req.body.status != null && checkStatus(req.body.status)) {
+			task.status = req.body.status;
+		}
+		await repository.saveTasks({ taskId, tasks });
+		res.status(200).json({message: "task successfully updated"});
+	} finally {
+		mutex.release();
 	}
-	
-	if(req.body.status != null && checkStatus(req.body.status)) {
-		task.status = req.body.status;
-	}
-	res.status(200).json({message: "task successfully updated"});
 }
 
 // DELETE
-function deleteTask(req, res) {
-	const {taskIdx} = findTask(req, res);
-	if(taskIdx == -1) return ;
+async function deleteTask(req, res) {
+	try {
+		await mutex.acquire();
+		let { projectId, projects } = await repository.getProjects();
+		let { taskId, tasks } = await repository.getTasks();
+		const { taskIdx, task } = findTaskById(tasks, req.params.taskId, res);
+		if(taskIdx == -1) return ;
+		const { project } = findProjectById(projects, req.params.projectId, res);
+		if(!project) return ;
 
-	tasks.splice(taskIdx, 1);
-	res.status(200).json({message: "task successfully deleted"}); 
+		const projectTaskIdx = project.tasks.findIndex(ti => ti == task.id);
+		if (projectTaskIdx == -1) {
+			res.status(404).json(repository.taskNotFoundErr);
+			return ;
+		}
+
+		project.tasks.splice(projectTaskIdx, 1);
+		tasks.splice(taskIdx, 1);
+		await repository.saveProjects({ projectId, projects });
+		await repository.saveTasks({ taskId, tasks });
+		res.status(200).json({message: "task successfully deleted"}); 
+	} finally {
+		mutex.release();
+	}
 }
 
+
+// util functions 
+const priorityList = ["high", "medium", "low"];
 function checkPriority(priority) {
-	if(priority == "high" || priority == "medium" || priority == "low") {
+	if(priorityList.includes(priority)) {
 		return priority;
 	}
 	return "";
 }
 
-
-// util functions 
 function checkDueDate(dueDate) {
 	date = new Date(dueDate);
 	if(isNaN(date)) return "";
@@ -105,13 +143,32 @@ function checkDueDate(dueDate) {
 	return `${year}-${month}-${day}`;
 }
 
+const statusList = ["not-started", "in-progress", "done", "completed"];
 function checkStatus(status) {
-	if(status == "not-started" ||
-		status ==  "in-progress" ||
-		status == "done" ||
-		status == "completed") return true;
-
+	if(!status && statusList.includes(status)) return true;
 	return false;
 }
 
-module.exports = {postTask, getTasks, putTask, deleteTask};
+function findTaskById(tasks, taskId , res) {
+	const taskIdx = tasks.findIndex(t => t.id == taskId);
+
+	if(taskIdx == -1) {
+		res.status(404).json(repository.taskNotFoundErr);
+		return {
+			taskIdx : -1,
+			task: null
+		};
+	}
+
+	return {
+		taskIdx: taskIdx,
+		task: tasks[taskIdx]
+	};
+}
+
+module.exports = {
+	postTask,
+	getTasks,
+	putTask,
+	deleteTask
+};

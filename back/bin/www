@@ -3,10 +3,36 @@
 /**
  * Module dependencies.
  */
-
 var app = require('../app');
 var debug = require('debug')('back:server');
 var http = require('http');
+const fs = require("fs-extra");
+const path = require("path");
+
+/**
+ * Data file check
+ */
+const dataDirPath = path.join(__dirname, "../repository/data/")
+const tasksFile = path.join(dataDirPath, "./tasks.json");
+const projectsFile = path.join(dataDirPath, "./projects.json");
+
+
+if(!fs.existsSync(dataDirPath)) {
+  fs.mkdirSync(dataDirPath, {recursive: true});
+}
+
+if(!fs.existsSync(tasksFile)) {
+  fs.writeFileSync(tasksFile,
+     JSON.stringify({taskId: 0, tasks: []}, null, 2), 'utf-8');
+}
+
+if(!fs.existsSync(projectsFile)) {
+  fs.writeFileSync(projectsFile,
+     JSON.stringify({projectId: 0, projects: []}, null, 2), 'utf-8');
+}
+
+
+
 
 /**
  * Get port from environment and store in Express.
